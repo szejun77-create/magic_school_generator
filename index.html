@@ -13,8 +13,27 @@ let current=null;
 function roll(sides){const range=4294967296,limit=range-range%sides;let n;do{const a=new Uint32Array(1);crypto.getRandomValues(a);n=a[0]}while(n>=limit);return n%sides+1}
 function record(name,sides,value,result,description){return {name,sides,value,result,description}}
 function pick(name,entries,description){const v=roll(entries.length);return record(name,entries.length,v,entries[v-1],description)}
+function pickSize(name, entries, description) {
+  const v = roll(100);
+
+  const i =
+     v <= 5  ? 0 :
+    v <= 20 ? 1 :
+    v <= 50 ? 2 :
+    v <= 80 ? 3 :
+    v <= 95 ? 4 : 5;
+
+  return record(
+    name, 100, v, entries[i],
+    description
+  );
+}
 function gate(name,entries,tableName){const v=roll(100),active=v<=5||v>=96;const rows=[record(name,100,v,active?'触发特殊项':'未触发特殊项','触发区间：01—05、96—100；06—95 不触发。')];if(active)rows.push(pick(tableName,entries,'由本次独立特殊判定触发；表内每项均为有效特殊结果。'));return rows}
-function create(){const regular=DATA.scales.map(([name,labels,desc])=>{const v=roll(100),i=Math.floor((v-1)/20);return record(name,100,v,labels[i],`命中区间 ${i*20+1}—${i*20+20}。${desc}`)});DATA.tables.slice(0,2).forEach(t=>regular.push(pick(...t)));const extra=DATA.tables.slice(2).map(t=>pick(...t));return {time:new Date().toLocaleString('zh-CN',{hour12:false}),regular,extra,special:[...gate('特殊办学判定',DATA.special,'特殊办学'),...gate('特殊学校身份判定',DATA.identities,'特殊学校身份')]}}
+function create(){const regular=DATA.scales.map(([name,labels,desc])=>{const v=roll(100),i=Math.floor((v-1)/20);return record(name,100,v,labels[i],`命中区间 ${i*20+1}—${i*20+20}。${desc}`)});DATA.tables.slice(0,2).forEach(t=>regular.push(pick(...t)));const extra = DATA.tables.slice(2).map(
+  t => t[0] === "学校规模"
+    ? pickSize(...t)
+    : pick(...t)
+);return {time:new Date().toLocaleString('zh-CN',{hour12:false}),regular,extra,special:[...gate('特殊办学判定',DATA.special,'特殊办学'),...gate('特殊学校身份判定',DATA.identities,'特殊学校身份')]}}
 function dice(r){return `D${r.sides} · 下限 1 / 上限 ${r.sides} · 出目 ${r.sides===100?String(r.value).padStart(2,'0'):r.value}`}
 function card(r,special){const el=document.createElement('article');el.className='card'+(special?' special':'');const top=document.createElement('div');top.className='top';const name=document.createElement('span');name.className='name';name.textContent=r.name;const die=document.createElement('span');die.className='die';die.textContent=dice(r);top.append(name,die);const value=document.createElement('div');value.className='value';value.textContent=r.result;const desc=document.createElement('div');desc.className='desc';desc.textContent=r.description;el.append(top,value,desc);return el}
 function render(){const root=document.getElementById('results');root.replaceChildren();for(const [title,rows,special] of [['01 / 常规维度',current.regular,false],['02 / 培养与教学',current.extra,false],['03 / 独立特殊判定',current.special,true]]){const h=document.createElement('h2');h.textContent=title;const grid=document.createElement('div');grid.className='grid';rows.forEach(r=>grid.append(card(r,special)));root.append(h,grid)}document.getElementById('meta').textContent=`生成于 ${current.time} · 共 ${current.regular.length+current.extra.length+current.special.length} 次掷骰 · 结果不作自动调整`;document.getElementById('download').disabled=false}
